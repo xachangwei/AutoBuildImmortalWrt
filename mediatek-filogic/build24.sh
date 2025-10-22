@@ -2,39 +2,30 @@
 source shell/custom-packages.sh
 # 该文件实际为imagebuilder容器内的build.sh
 
-if [ -n "$CUSTOM_PACKAGES" ]; then
-  echo "✅ 你选择了第三方软件包：$CUSTOM_PACKAGES"
-  if [ "$PROFILE" = "glinet_gl-mt3000" ]; then
-    echo "❌ 检查到您集成了第三方软件包 由于mt3000闪存空间较小 不支持此操作"
-    echo "✅ 系统将自动帮你注释掉shell/custom-packages.sh中的插件 目前支持第三方插件集成的机型是mt2500/mt6000等大闪存机型"
-    CUSTOM_PACKAGES=""
-  else
-    # 下载 run 文件仓库
-    echo "🔄 正在同步第三方软件仓库 Cloning run file repo..."
-    git clone --depth=1 https://github.com/wukongdaily/store.git /tmp/store-run-repo
+#echo "✅ 你选择了第三方软件包：$CUSTOM_PACKAGES"
+# 下载 run 文件仓库
+echo "🔄 正在同步第三方软件仓库 Cloning run file repo..."
+git clone --depth=1 https://github.com/wukongdaily/store.git /tmp/store-run-repo
 
-    # 拷贝 run/arm64 下所有 run 文件和ipk文件 到 extra-packages 目录
-    mkdir -p /home/build/immortalwrt/extra-packages
-    cp -r /tmp/store-run-repo/run/arm64/* /home/build/immortalwrt/extra-packages/
+# 拷贝 run/arm64 下所有 run 文件和ipk文件 到 extra-packages 目录
+mkdir -p /home/build/immortalwrt/extra-packages
+cp -r /tmp/store-run-repo/run/arm64/* /home/build/immortalwrt/extra-packages/
 
-    echo "✅ Run files copied to extra-packages:"
-    ls -lh /home/build/immortalwrt/extra-packages/*.run
-    # 解压并拷贝ipk到packages目录
-    sh shell/prepare-packages.sh
-    ls -lah /home/build/immortalwrt/packages/
-    # 添加架构优先级信息
-    sed -i '1i\
-    arch aarch64_generic 10\n\
-    arch aarch64_cortex-a53 15' repositories.conf
-  fi
-else
-  echo "⚪️ 未选择任何第三方软件包"
-fi
+echo "✅ Run files copied to extra-packages:"
+ls -lh /home/build/immortalwrt/extra-packages/*.run
+# 解压并拷贝ipk到packages目录
+sh shell/prepare-packages.sh
+ls -lah /home/build/immortalwrt/packages/
+# 添加架构优先级信息
+sed -i '1i\
+arch aarch64_generic 10\n\
+arch aarch64_cortex-a53 15' repositories.conf
 
 
 
 # yml 传入的路由器型号 PROFILE
 echo "Building for profile: $PROFILE"
+
 echo "Include Docker: $INCLUDE_DOCKER"
 echo "Create pppoe-settings"
 mkdir -p  /home/build/immortalwrt/files/etc/config
@@ -55,10 +46,8 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting build process..."
 
 # 定义所需安装的包列表 下列插件你都可以自行删减
 PACKAGES=""
-PACKAGES="$PACKAGES curl"
+PACKAGES="$PACKAGES curl luci luci-i18n-base-zh-cn"
 PACKAGES="$PACKAGES luci-i18n-firewall-zh-cn"
-# 服务——FileBrowser 用户名admin 密码admin
-PACKAGES="$PACKAGES luci-i18n-filebrowser-go-zh-cn"
 PACKAGES="$PACKAGES luci-theme-argon"
 PACKAGES="$PACKAGES luci-app-argon-config"
 PACKAGES="$PACKAGES luci-i18n-argon-config-zh-cn"
@@ -66,19 +55,22 @@ PACKAGES="$PACKAGES luci-i18n-diskman-zh-cn"
 #24.10.0
 PACKAGES="$PACKAGES luci-i18n-package-manager-zh-cn"
 PACKAGES="$PACKAGES luci-i18n-ttyd-zh-cn"
-PACKAGES="$PACKAGES luci-i18n-passwall-zh-cn"
-PACKAGES="$PACKAGES luci-app-openclash"
-PACKAGES="$PACKAGES luci-i18n-homeproxy-zh-cn"
 PACKAGES="$PACKAGES openssh-sftp-server"
-# 增加几个必备组件 方便用户安装iStore
-PACKAGES="$PACKAGES fdisk"
-PACKAGES="$PACKAGES script-utils"
-PACKAGES="$PACKAGES luci-i18n-samba4-zh-cn"
+# 文件管理器
+PACKAGES="$PACKAGES luci-i18n-filemanager-zh-cn"
+# 静态文件服务器dufs(推荐)
+PACKAGES="$PACKAGES luci-i18n-dufs-zh-cn"
 
 # 第三方软件包 合并
 # ======== shell/custom-packages.sh =======
-PACKAGES="$PACKAGES $CUSTOM_PACKAGES"
-
+if [ "$PROFILE" = "glinet_gl-axt1800" ] || [ "$PROFILE" = "glinet_gl-ax1800" ]; then
+    # 这2款 暂时不支持第三方插件的集成 snapshot版本太高 opkg换成apk包管理器 6.12内核 
+    echo "Model:$PROFILE not support third-parted packages"
+    PACKAGES="$PACKAGES -luci-i18n-diskman-zh-cn luci-i18n-homeproxy-zh-cn"
+else
+    echo "Other Model:$PROFILE"
+    PACKAGES="$PACKAGES $CUSTOM_PACKAGES"
+fi
 
 # 判断是否需要编译 Docker 插件
 if [ "$INCLUDE_DOCKER" = "yes" ]; then
